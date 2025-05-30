@@ -9,7 +9,6 @@ dp = Dispatcher(bot)
 
 DATA_FILE = 'user_data.json'
 
-# Примеры 15 способов заработка (можно менять)
 earn_methods = [
     "1. Продажа товаров на маркетплейсах",
     "2. Фриланс: копирайтинг, дизайн",
@@ -50,31 +49,42 @@ async def start(message: types.Message):
     data['users'] = users
     save_data(data)
 
+    keyboard = types.InlineKeyboardMarkup()
+    button = types.InlineKeyboardButton("Я готов, отправляй скорее!", callback_data="ready")
+    keyboard.add(button)
+
     await message.answer(
-        "Привет! Это *Схемка прилетела* — твой помощник по заработку.\n"
-        "Ты получаешь 15 способов заработка, листай с помощью кнопок.",
-        parse_mode='Markdown'
+        "Привет! Это *Схемка прилетела* — твой помощник по заработку.\n\n"
+        "Ты готов? Нажми кнопку ниже, и я пришлю первые способы!",
+        parse_mode='Markdown',
+        reply_markup=keyboard
     )
-    await send_earn_method(message.chat.id, 0)
 
 def get_keyboard(page):
     keyboard = types.InlineKeyboardMarkup(row_width=3)
-    buttons = []
 
+    nav_buttons = []
     if page > 0:
-        buttons.append(types.InlineKeyboardButton("⬅️ Назад", callback_data=f"page_{page-1}"))
+        nav_buttons.append(types.InlineKeyboardButton("⬅️ Назад", callback_data=f"page_{page-1}"))
     if page < len(earn_methods) - 1:
-        buttons.append(types.InlineKeyboardButton("Вперёд ➡️", callback_data=f"page_{page+1}"))
+        nav_buttons.append(types.InlineKeyboardButton("Вперёд ➡️", callback_data=f"page_{page+1}"))
 
-    # Кнопка внизу всегда
-    buttons.append(types.InlineKeyboardButton("Я всё посмотрел", callback_data="all_done"))
+    if nav_buttons:
+        keyboard.row(*nav_buttons)  # Ряд с кнопками Назад и Вперёд
 
-    keyboard.add(*buttons)
+    # Отдельный ряд с кнопкой "Я всё посмотрел"
+    keyboard.add(types.InlineKeyboardButton("Я всё посмотрел", callback_data="all_done"))
+
     return keyboard
 
 async def send_earn_method(chat_id, page):
     text = earn_methods[page]
     await bot.send_message(chat_id, text, reply_markup=get_keyboard(page))
+
+@dp.callback_query_handler(lambda c: c.data == "ready")
+async def process_ready(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+    await send_earn_method(callback_query.message.chat.id, 0)
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('page_'))
 async def process_page(callback_query: types.CallbackQuery):
